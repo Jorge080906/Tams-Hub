@@ -16,6 +16,14 @@ Tech Stack
 Backend: PHP
 Database: MySQL
 Frontend: HTML, CSS(Bootstrap), PHP
+Environment: XAMPP
+
+Installation & Local Setup
+
+To get this project running locally on your machine using XAMPP run this command on git:
+1)git clone [https://github.com/your-username/tam-hub.git](https://github.com/your-username/tam-hub.git)
+2)install XAMPP and create a MySQL database Called my "tams_hub" and import .sql file
+3)Navigate to http://localhost/tam-hub/ in your web browser
 
 Contributors
 Anacta, Jorge - Backend/Database - @Jorge080906
