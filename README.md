@@ -7,7 +7,7 @@ A dynamic web application designed for FEU Tech students, faculty, and laborator
 TAM-Hub replaces outdated paper logs and manual forms with a centralized, automated web portal. It directly addresses common campus challenges like resource hoarding, double-booking, and a lack of accountability, ensuring optimal resource utilization across the Tamaraw community.
 
 Key Features
-Live Availability Tracking: Real-time visibility of high-value hardware (Mac Minis, IoT development kits, VR headsets) and collaborative study pods.
+Live Availability Tracking: Real-time visibility of high-value hardware (Mac Minis, IoT development kits, FIT and ENG BLDGs Facilities and COR Revisions) and collaborative study pods.
 Automated Reservation Workflow: Hassle-free submission, approval, and management of active resource loans.
 Role-Based Access Control (RBAC): Tailored permission tiers for Students/Borrowers and Laboratory Technicians/Admins.
 Accountability & Security: Digital logs to protect valuable university property and prevent double-booking.
@@ -19,5 +19,5 @@ Frontend: HTML, CSS(Bootstrap), PHP
 
 Contributors
 Anacta, Jorge - Backend/Database - @Jorge080906
-Atiga, Jrex
+Atiga, Jrex -
 Silva, Marluo
