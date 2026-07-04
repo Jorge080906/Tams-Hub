@@ -8,7 +8,7 @@ TAM-Hub replaces outdated paper logs and manual forms with a centralized, automa
 
 Key Features
 Live Availability Tracking: Real-time visibility of high-value hardware (Mac Minis, IoT development kits, FIT and ENG BLDGs Facilities and COR Revisions)
-Automated Reservation Workflow: Hassle-free submission, approval, and management of active resource loans.
+Reservation Workflow: Hassle-free submission, approval, and management of active resource loans.
 Role-Based Access Control (RBAC): Tailored permission tiers for Students and Admins.
 Accountability & Security: Digital logs to protect valuable university property, information and prevent double-booking.
 Ease of access for Admin approvals.
