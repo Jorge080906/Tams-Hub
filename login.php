@@ -6,7 +6,8 @@ require_once __DIR__ . '/db_connect.php';
 $error_message = '';
 $success_message = '';
 
-if (isset($_SESSION['user_id'], $_SESSION['role'])) {
+// If user is already logged in, redirect them
+if (isset($_SESSION['email'], $_SESSION['role'])) {
     if ($_SESSION['role'] === 'admin') {
         header('Location: admin_dashboard.php');
         exit;
@@ -18,6 +19,7 @@ if (isset($_SESSION['user_id'], $_SESSION['role'])) {
     }
 }
 
+// Check for registration success
 if (isset($_GET['registered']) && $_GET['registered'] === '1') {
     $success_message = 'Registration successful! You can now log in.';
 }
@@ -32,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = 'Please enter a valid email address.';
     } else {
         $query = '
-            SELECT id, email, password, first_name, last_name, role
+            SELECT email, password, first_name, last_name, role
             FROM users
             WHERE email = ?
             LIMIT 1
@@ -52,11 +54,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user && password_verify($password, $user['password'])) {
                 session_regenerate_id(true);
 
-                $_SESSION['user_id'] = (int) $user['id'];
+                $_SESSION['user_email'] = $user['email'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['first_name'] = $user['first_name'];
                 $_SESSION['last_name'] = $user['last_name'];
                 $_SESSION['role'] = $user['role'];
+
+                $update_query = "UPDATE users SET last_login = NOW() WHERE email = ?";
+                $update_stmt = $conn->prepare($update_query);
+                $update_stmt->bind_param('s', $email);
+                $update_stmt->execute();
+                $update_stmt->close();
 
                 if ($user['role'] === 'admin') {
                     header('Location: admin_dashboard.php');
@@ -88,14 +96,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 
     <div class="container" id="container">
+        <!-- SIGN UP FORM -->
         <div class="form-container sign-up">
             <form id="signupForm" action="register.php" method="POST">
                 <h1>Create Account</h1>
 
-                <div id="signup-message" class="form-message"></div>
+                <?php if (isset($_GET['error']) && $_GET['error'] === '1'): ?>
+                    <div class="form-message error">Registration failed. Please check your inputs.</div>
+                <?php endif; ?>
 
                 <div class="social-icons">
-                    <a href="276871961319-qt3q8mokrshal5spm7nlibs0q5clca7p.apps.googleusercontent.com" id="google-signup" class="icon"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-google"></i></a>
                     <a href="#" class="icon"><i class="fa-brands fa-facebook"></i></a>
                     <a href="#" class="icon"><i class="fa-brands fa-github"></i></a>
                     <a href="#" class="icon"><i class="fa-brands fa-linkedin-in"></i></a>
@@ -104,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" name="first_name" placeholder="First Name" required>
                 <input type="text" name="last_name" placeholder="Last Name" required>
                 <input type="email" name="email" placeholder="name@fit.edu.ph" required>
-                <input type="text" name="student_number" placeholder="Student Number" required>
+                <input type="text" name="student_number" placeholder="Student Number (9 digits)" required>
                 <input type="text" name="course" placeholder="Course (e.g., BSIT, BSCS)" required>
                 <input type="text" name="contact_number" placeholder="Contact Number">
                 <input type="password" name="password" placeholder="Password (min. 8 characters)" required>
@@ -114,25 +125,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="submit">Sign Up</button>
             </form>
         </div>
+
+        <!-- SIGN IN FORM -->
         <div class="form-container sign-in">
             <form id="loginForm" action="login.php" method="POST">
                 <h1>Sign In</h1>
 
-                <div id="login-message" class="form-message"></div>
+                <!-- Display PHP error/success messages -->
+                <?php if (!empty($error_message)): ?>
+                    <div class="form-message error"><?php echo htmlspecialchars($error_message); ?></div>
+                <?php endif; ?>
+
+                <?php if (!empty($success_message)): ?>
+                    <div class="form-message success"><?php echo htmlspecialchars($success_message); ?></div>
+                <?php endif; ?>
 
                 <div class="social-icons">
-                    <a href="276871961319-qt3q8mokrshal5spm7nlibs0q5clca7p.apps.googleusercontent.com" id="google-signin" class="icon"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-google"></i></a>
                     <a href="#" class="icon"><i class="fa-brands fa-facebook"></i></a>
                     <a href="#" class="icon"><i class="fa-brands fa-github"></i></a>
                     <a href="#" class="icon"><i class="fa-brands fa-linkedin-in"></i></a>
                 </div>
-                <span>or use your email password</span>
+                <span>or use your email and password</span>
                 <input type="email" name="email" placeholder="Email" required>
                 <input type="password" name="password" placeholder="Password" required>
-                <a href="#">Forget Your Password?</a>
+                <a href="#">Forgot Your Password?</a>
                 <button type="submit">Sign In</button>
             </form>
         </div>
+
+        <!-- TOGGLE CONTAINER -->
         <div class="toggle-container">
             <div class="toggle">
                 <div class="toggle-panel toggle-left">
@@ -151,20 +173,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="loginscript.js"></script>
-    <script src="authscript.js"></script>
     <script>
-        window.onload = function () {
-            google.accounts.id.initialize({
-                client_id: "276871961319-qt3q8mokrshal5spm7nlibs0q5clca7p.apps.googleusercontent.com",
-                callback: handleCredentialResponse
-            });
+        // Auto-show registration form if there was a registration error
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('error') === '1') {
+                document.getElementById('container').classList.add('active');
+            }
+            if (urlParams.get('registered') === '1') {
+                // Show success message on login form
+                const container = document.getElementById('container');
+                container.classList.remove('active');
+            }
         };
-
-        function handleCredentialResponse(response) {
-            console.log("User info token:", response.credential);
-        }
     </script>
 </body>
 
