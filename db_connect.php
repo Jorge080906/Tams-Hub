@@ -1,14 +1,18 @@
 <?php
 
-$host = "localhost";
-$db_username = "root";
-$db_password = "";
-$db_name = "tam_hub";
+$hostname = "localhost";
+$dbuser = "root";
+$dbpass = "";
+$dbname = "tam_hub";
 
-$conn = new mysqli($host, $db_username, $db_password, $db_name);
+$con = mysqli_connect(
+    $hostname,
+    $dbuser,
+    $dbpass,
+    $dbname
+);
 
-if ($conn->connect_error) {
-    die("Database connection failed: " . $conn->connect_error);
+if (mysqli_connect_errno()) {
+    echo "Failed to connect to Database... " . mysqli_connect_error();
+    exit();
 }
-
-$conn->set_charset("utf8mb4");
