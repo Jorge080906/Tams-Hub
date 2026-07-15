@@ -116,11 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" name="last_name" placeholder="Last Name" required>
                 <input type="email" name="email" placeholder="name@fit.edu.ph" required>
                 <input type="text" name="student_number" placeholder="Student Number (9 digits)" required>
-                <input type="text" name="course" placeholder="Course (e.g., BSIT, BSCS)" required>
-                <input type="text" name="contact_number" placeholder="Contact Number">
                 <input type="password" name="password" placeholder="Password (min. 8 characters)" required>
                 <input type="password" name="confirm_password" placeholder="Confirm Password" required>
-                <input type="hidden" name="year_level" value="1">
                 <input type="hidden" name="role" value="student">
                 <button type="submit">Sign Up</button>
             </form>
