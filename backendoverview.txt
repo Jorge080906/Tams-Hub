@@ -1,0 +1,772 @@
+# TAM-HUB Backend Architecture Overview
+
+## Backend Technology Stack
+
+| Component | Technology | Version/Notes |
+|-----------|------------|---------------|
+| Language | PHP | 7.4+ (procedural style) |
+| Database Driver | MySQLi | Object-oriented prepared statements |
+| Database | MySQL/MariaDB | 10.4+ (InnoDB) |
+| Session Handler | PHP Native | File-based sessions |
+| Password Hashing | bcrypt | `PASSWORD_DEFAULT` (cost 10) |
+| Timezone | Asia/Manila | FEU Tech local time (UTC+8) |
+
+---
+
+## Database Design & Schema
+
+### Entity Relationship Diagram
+
+```
+┌─────────────┐       ┌──────────────────┐       ┌─────────────┐
+│   users     │       │  reservations    │       │  resources  │
+├─────────────┤       ├──────────────────┤       ├─────────────┤
+│ email (PK)  │◄──────│ user_email (FK)  │       │ id (PK)     │
+│ password    │       │ resource_id (FK) │──────►│ name        │
+│ first_name  │       │ purpose          │       │ category    │
+│ last_name   │       │ start_datetime   │       │ quantity    │
+│ student_no  │       │ end_datetime     │       │ status      │
+│ role        │       │ status           │       │ description │
+│ last_login  │       │ admin_remarks    │       │ created_at  │
+│ created_at  │       │ created_at       │       │ updated_at  │
+│ updated_at  │       │ updated_at       │       └─────────────┘
+└─────────────┘       └──────────────────┘
+                              ▲
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+            ┌───────┴───────┐   ┌───────┴───────┐
+            │  schedules    │   │student_schedules
+            ├───────────────┤   ├───────────────┤
+            │ id (PK)       │   │ id (PK)       │
+            │ subject_code  │   │ student_email │◄──┐
+            │ subject_name  │   │ schedule_id   │───┘
+            │ room          │   │ status        │
+            │ day_of_week   │   │ requested_*   │
+            │ start_time    │   │ change_reason │
+            │ end_time      │   │ admin_remarks │
+            │ semester      │   │ created_at    │
+            │ status        │   │ updated_at    │
+            └───────────────┘   └───────────────┘
+```
+
+### Table Definitions with Constraints
+
+#### `users` Table
+```sql
+CREATE TABLE `users` (
+  `email` varchar(100) NOT NULL PRIMARY KEY,
+  `password` varchar(255) NOT NULL,              -- bcrypt hash
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `student_number` varchar(20) NOT NULL DEFAULT '', -- empty for admins
+  `role` enum('student','admin') NOT NULL DEFAULT 'student',
+  `last_login` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  UNIQUE KEY `student_number` (`student_number`),
+  KEY `idx_role` (`role`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+#### `resources` Table
+```sql
+CREATE TABLE `resources` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `category` varchar(50) NOT NULL,
+  `specifications` text DEFAULT NULL,
+  `status` enum('Available','Reserved','Out for Repair','Unavailable')
+    NOT NULL DEFAULT 'Available',
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `image_path` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  KEY `idx_status` (`status`),
+  KEY `idx_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+#### `reservations` Table
+```sql
+CREATE TABLE `reservations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_email` varchar(100) NOT NULL,
+  `resource_id` int(11) NOT NULL,
+  `purpose` text NOT NULL,
+  `start_datetime` datetime NOT NULL,
+  `end_datetime` datetime NOT NULL,
+  `status` enum('Pending','Approved','Rejected','Cancelled','Completed')
+    NOT NULL DEFAULT 'Pending',
+  `admin_remarks` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  KEY `idx_reservation_dates` (`start_datetime`, `end_datetime`),
+  KEY `idx_user_status` (`user_email`, `status`),
+  KEY `idx_resource_status` (`resource_id`, `status`),
+
+  CONSTRAINT `fk_res_user` FOREIGN KEY (`user_email`)
+    REFERENCES `users` (`email`) ON DELETE CASCADE,
+  CONSTRAINT `fk_res_resource` FOREIGN KEY (`resource_id`)
+    REFERENCES `resources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+#### `schedules` Table (Master Schedule)
+```sql
+CREATE TABLE `schedules` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `subject_code` varchar(20) NOT NULL,
+  `subject_name` varchar(100) NOT NULL,
+  `room` varchar(50) NOT NULL,
+  `day_of_week` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday') NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `semester` varchar(50) NOT NULL DEFAULT '1st Semester 2024-2025',
+  `status` enum('Active','Inactive') NOT NULL DEFAULT 'Active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  UNIQUE KEY `unique_schedule` (`subject_code`, `room`, `day_of_week`, `start_time`, `semester`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+#### `student_schedules` Table (Enrollments + Change Requests)
+```sql
+CREATE TABLE `student_schedules` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `student_email` varchar(100) NOT NULL,
+  `schedule_id` int(11) NOT NULL,
+  `status` enum('Enrolled','Pending Change','Change','Dropped')
+    NOT NULL DEFAULT 'Enrolled',
+  `requested_room` varchar(50) DEFAULT NULL,
+  `requested_day` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday') DEFAULT NULL,
+  `requested_start_time` time DEFAULT NULL,
+  `requested_end_time` time DEFAULT NULL,
+  `change_reason` text DEFAULT NULL,
+  `admin_remarks` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  KEY `idx_student_schedule` (`student_email`, `schedule_id`),
+  KEY `idx_schedule_id` (`schedule_id`),
+  KEY `idx_status` (`status`),
+
+  CONSTRAINT `fk_ss_student` FOREIGN KEY (`student_email`)
+    REFERENCES `users` (`email`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ss_schedule` FOREIGN KEY (`schedule_id`)
+    REFERENCES `schedules` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+---
+
+## Core Backend Modules
+
+### 1. Database Connection (`db_connect.php`)
+
+```php
+<?php
+$hostname = "localhost";
+$dbuser = "root";
+$dbpass = "";
+$dbname = "tam_hub";
+
+$conn = mysqli_connect($hostname, $dbuser, $dbpass, $dbname);
+
+if (mysqli_connect_errno()) {
+    echo "Failed to connect to Database... " . mysqli_connect_error();
+    exit();
+}
+?>
+```
+
+**Usage Pattern**: `require_once __DIR__ . '/db_connect.php';` at top of every PHP file needing DB access.
+
+**Connection Object**: `$conn` (MySQLi instance) available globally after include.
+
+---
+
+### 2. Authentication System
+
+#### Login Flow (`login.php` lines 27-81)
+
+```php
+// 1. Input sanitization
+$email = strtolower(trim($_POST['email'] ?? ''));
+$password = $_POST['password'] ?? '';
+
+// 2. Prepared statement query
+$query = "SELECT email, password, first_name, last_name, role
+          FROM users WHERE email = ? LIMIT 1";
+$stmt = $conn->prepare($query);
+$stmt->bind_param('s', $email);
+$stmt->execute();
+$user = $stmt->get_result()->fetch_assoc();
+
+// 3. Password verification
+if ($user && password_verify($password, $user['password'])) {
+    // 4. Session regeneration (prevents fixation)
+    session_regenerate_id(true);
+
+    // 5. Set session variables
+    $_SESSION['user_email'] = $user['email'];
+    $_SESSION['email'] = $user['email'];        // Legacy compat
+    $_SESSION['first_name'] = $user['first_name'];
+    $_SESSION['last_name'] = $user['last_name'];
+    $_SESSION['role'] = $user['role'];
+
+    // 6. Update last_login timestamp
+    $update_query = "UPDATE users SET last_login = NOW() WHERE email = ?";
+    $update_stmt = $conn->prepare($update_query);
+    $update_stmt->bind_param('s', $email);
+    $update_stmt->execute();
+
+    // 7. Role-based redirect
+    if ($user['role'] === 'admin') header('Location: admin_dashboard.php');
+    else header('Location: student_dashboard.php');
+    exit;
+}
+```
+
+#### Registration Flow (`register.php` lines 20-83)
+
+```php
+// 1. Validation
+- Email: filter_var() + str_ends_with('@fit.edu.ph')
+- Password: strlen >= 8, matches confirm_password
+- Student number: preg_match('/^[0-9]{9}$/')
+
+// 2. Duplicate check
+$check_query = 'SELECT email FROM users WHERE email = ?';
+$check_stmt->bind_param('s', $email);
+$check_stmt->execute();
+$check_stmt->store_result();
+if ($check_stmt->num_rows > 0) { error: "Email already registered." }
+
+// 3. Insert with hashed password
+$hashed_password = password_hash($password, PASSWORD_DEFAULT);
+$insert_query = 'INSERT INTO users (email, password, first_name, last_name, student_number, role)
+                 VALUES (?, ?, ?, ?, ?, ?)';
+$insert_stmt->bind_param('ssssss', $email, $hashed_password, $first_name, $last_name, $student_number, $role);
+```
+
+#### Session Guard Pattern (Every Protected Page)
+
+```php
+session_start();
+
+// Auth check
+if (!isset($_SESSION['user_email']) && !isset($_SESSION['email'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$user_email = $_SESSION['user_email'] ?? $_SESSION['email'] ?? '';
+
+// Role authorization
+if ($_SESSION['role'] !== 'student') {  // or 'admin'
+    header("Location: other_dashboard.php");
+    exit();
+}
+```
+
+#### Logout (`logout.php`)
+
+```php
+session_start();
+$_SESSION = array();          // Clear all session data
+session_destroy();            // Destroy session file
+header("Location: login.php");
+exit();
+```
+
+---
+
+### 3. Reservation System Backend
+
+#### Conflict Detection Algorithm (`reserve_resource.php` lines 78-91)
+
+```php
+// Overlap condition: existing reservation overlaps with requested time
+// Two time
+// Overlap exists if: (existing_start < requested_end) AND (existing_end > requested_start)
+
+$overlap_query = "SELECT id FROM reservations
+                  WHERE resource_id = ?
+                  AND status IN ('Pending', 'Approved')
+                  AND ((start_datetime <= ? AND end_datetime > ?)
+                       OR (start_datetime < ? AND end_datetime >= ?)
+                       OR (start_datetime >= ? AND end_datetime <= ?))";
+
+$overlap_stmt->bind_param("issssss", $resource_id,
+    $end_db, $start_db,      // existing starts before requested ends
+    $start_db, $end_db,      // existing ends after requested starts
+    $start_db, $end_db);     // existing fully within requested
+```
+
+**Timezone Handling**: All datetime operations use `DateTimeZone('Asia/Manila')` for consistency.
+
+#### Reservation State Machine
+
+```
+┌─────────┐     Admin Approve     ┌──────────┐     Admin Complete     ┌──────────┐
+│ Pending │ ────────────────────► │ Approved │ ────────────────────► │ Completed│
+└─────────┘                       └──────────┘                       └──────────┘
+     │                                 │
+     │ Student Cancel                  │ Admin Reject
+     ▼                                 ▼
+┌──────────┐                     ┌──────────┐
+│Cancelled │                     │ Rejected │
+└──────────┘                     └──────────┘
+```
+
+#### Admin Actions (`admin_dashboard.php` lines 24-64)
+
+```php
+// Approve: Pending → Approved
+UPDATE reservations SET status = 'Approved', updated_at = NOW()
+WHERE id = ? AND status = 'Pending'
+
+// Reject: Pending → Rejected
+UPDATE reservations SET status = 'Rejected', updated_at = NOW()
+WHERE id = ? AND status = 'Pending'
+
+// Complete: Approved → Completed
+UPDATE reservations SET status = 'Completed', updated_at = NOW()
+WHERE id = ? AND status = 'Approved'
+```
+
+---
+
+### 4. Schedule System Backend
+
+#### Room Conflict Detection (`admin_schedule.php` lines 49-57)
+
+```php
+// Check if room is booked at same day/time (excluding inactive schedules)
+$check_query = "SELECT id FROM schedules
+                WHERE room = ? AND day_of_week = ? AND status = 'Active'
+                AND ((start_time <= ? AND end_time > ?)
+                     OR (start_time < ? AND end_time >= ?))";
+$check_stmt->bind_param("ssssss", $room, $day_of_week,
+    $start_time, $start_time, $end_time, $end_time);
+```
+
+#### Student Enrollment Logic (`student_schedule.php` lines 70-107)
+
+```php
+// 1. Verify schedule exists and is active
+$check_query = "SELECT id FROM schedules WHERE id = ? AND semester = ? AND status = 'Active'";
+
+// 2. Check duplicate enrollment (not dropped)
+$enroll_check = "SELECT id FROM student_schedules
+                 WHERE student_email = ? AND schedule_id = ? AND status != 'Dropped'";
+
+// 3. Insert enrollment
+$insert_query = "INSERT INTO student_schedules (student_email, schedule_id, status)
+                 VALUES (?, ?, 'Enrolled')";
+```
+
+#### Schedule Change Request Flow (`student_schedule.php` lines 110-158)
+
+```php
+// Student submits change request
+$update_query = "UPDATE student_schedules
+                 SET requested_room = ?,
+                     requested_day = ?,
+                     requested_start_time = ?,
+                     requested_end_time = ?,
+                     change_reason = ?,
+                     status = 'Pending Change',
+                     updated_at = NOW()
+                 WHERE id = ?";
+```
+
+#### Admin Approval/Rejection (`admin_schedule_approvals.php`)
+
+```php
+// Approve: Apply requested changes to enrollment
+UPDATE student_schedules
+SET status = 'Enrolled',
+    // Optionally create new schedule or update existing
+    admin_remarks = ?,
+    updated_at = NOW()
+WHERE id = ?
+
+// Reject: Revert to enrolled, store remarks
+UPDATE student_schedules
+SET status = 'Enrolled',
+    requested_room = NULL,
+    requested_day = NULL,
+    requested_start_time = NULL,
+    requested_end_time = NULL,
+    change_reason = NULL,
+    admin_remarks = ?,
+    updated_at = NOW()
+WHERE id = ?
+```
+
+---
+
+### 5. Resource Management Backend
+
+#### Resource Status Transitions
+
+```
+Available ──► Reserved (when reservation approved)
+    ▲              │
+    │              ▼
+    └──── Out for Repair ◄── Admin action
+    │
+    └──── Unavailable ◄────── Admin action
+```
+
+#### Quantity Management (`reserve_resource.php` line 68)
+
+```php
+// Check availability: status='Available' AND quantity > 0
+$check_query = "SELECT id, quantity FROM resources
+                WHERE id = ? AND status = 'Available' AND quantity > 0";
+```
+
+#### Admin Resource CRUD (`add_resource.php`, `edit_resource.php`, `admin_dashboard.php`)
+
+```php
+// Add
+INSERT INTO resources (name, description, category, specifications, status, quantity, image_path)
+VALUES (?, ?, ?, ?, 'Available', ?, ?)
+
+// Update status (admin_dashboard.php line 94-110)
+$allowed_status = ['Available', 'Reserved', 'Out for Repair', 'Unavailable'];
+UPDATE resources SET status = ?, updated_at = NOW() WHERE id = ?
+
+// Delete (with referential integrity check)
+SELECT COUNT(*) FROM reservations
+WHERE resource_id = ? AND status IN ('Pending', 'Approved')
+// If count > 0: block deletion
+```
+
+---
+
+### 6. User Management Backend (Admin Only)
+
+#### Role-Based Operations (`admin_dashboard.php` lines 113-264)
+
+```php
+// Add Student
+INSERT INTO users (email, password, first_name, last_name, student_number, role)
+VALUES (?, ?, ?, ?, ?, 'student')
+
+// Add Admin (no student_number)
+INSERT INTO users (email, password, first_name, last_name, student_number, role)
+VALUES (?, ?, ?, ?, '', 'admin')
+
+// Upgrade Student → Admin
+UPDATE users SET role = 'admin' WHERE email = ?
+
+// Downgrade Admin → Student (prevents self-downgrade)
+UPDATE users SET role = 'student', student_number = IFNULL(student_number, '')
+WHERE email = ? AND email != ?  -- current admin email
+```
+
+---
+
+## API/Request Patterns
+
+### HTTP Methods Usage
+
+| Endpoint | GET | POST | Purpose |
+|----------|-----|------|---------|
+| `login.php` | ✓ | ✓ | Show form / Process login |
+| `register.php` | - | ✓ | Process registration (redirects) |
+| `logout.php` | ✓ | - | Destroy session |
+| `student_dashboard.php` | ✓ | - | Dashboard + cancel via `?cancel=ID` |
+| `reserve_resource.php` | ✓ | ✓ | Show form / Submit reservation |
+| `student_schedule.php` | ✓ | ✓ | View schedule / Enroll, drop, request change |
+| `admin_dashboard.php` | ✓ | ✓ | Dashboard + approve/reject via GET params, add users via POST |
+| `admin_schedule.php` | ✓ | ✓ | CRUD schedules (PRG pattern) |
+| `admin_schedule_approvals.php` | ✓ | ✓ | Approve/reject change requests |
+| `add_resource.php` | ✓ | ✓ | Resource CRUD |
+| `edit_resource.php` | ✓ | ✓ | Resource CRUD |
+
+### PRG (Post-Redirect-Get) Pattern
+
+All state-changing POST operations redirect to prevent form resubmission:
+
+```php
+// Example: admin_schedule.php line 62-65
+if ($insert_stmt->execute()) {
+    header("Location: admin_schedule.php?semester=" . urlencode($semester) . "&added=1");
+    exit();
+}
+```
+
+### GET Parameters for Actions
+
+| Parameter | Page | Action |
+|-----------|------|--------|
+| `?approve=ID` | admin_dashboard.php | Approve reservation |
+| `?reject=ID` | admin_dashboard.php | Reject reservation |
+| `?complete=ID` | admin_dashboard.php | Complete reservation |
+| `?cancel=ID` | student_dashboard.php | Student cancels own reservation |
+| `?delete_resource=ID` | admin_dashboard.php | Delete resource |
+| `?update_status=ID&new_status=X` | admin_dashboard.php | Change resource status |
+| `?toggle_status=1&schedule_id=ID` | admin_schedule.php | Toggle schedule Active/Inactive |
+| `?delete_schedule=ID` | admin_schedule.php | Delete schedule |
+| `?semester=X` | Multiple | Filter by semester |
+
+---
+
+## Security Implementation
+
+### SQL Injection Prevention
+- **100% Prepared Statements**: All queries use `$stmt->bind_param()`
+- **No String Concatenation**: Zero raw SQL interpolation
+
+```php
+// ✅ Correct
+$stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
+$stmt->bind_param('s', $email);
+
+// ❌ Never used
+$query = "SELECT * FROM users WHERE email = '$email'";
+```
+
+### Password Security
+- **Hashing**: `password_hash($password, PASSWORD_DEFAULT)` → bcrypt cost 10
+- **Verification**: `password_verify($input, $stored_hash)` (timing-safe)
+- **No Plaintext**: Passwords never logged or exposed
+
+### Session Security
+- **Regeneration**: `session_regenerate_id(true)` on login
+- **HttpOnly**: Default PHP session cookie settings
+- **Destruction**: Full `$_SESSION = []` + `session_destroy()` on logout
+
+### Input Validation Layers
+1. **Client-side**: HTML5 attributes (required, pattern, minlength)
+2. **Server-side**: PHP validation before DB operations
+3. **Output Encoding**: `htmlspecialchars()` on all echoed variables
+
+### Authorization Checks
+```php
+// Every protected page
+if ($_SESSION['role'] !== 'expected_role') {
+    header("Location: correct_dashboard.php");
+    exit();
+}
+
+// Resource ownership verification
+// student_dashboard.php cancel: checks user_email matches session
+$check_query = "SELECT id FROM reservations WHERE id = ? AND user_email = ? AND status = 'Pending'";
+
+// Admin actions: implicit via role check on admin pages
+```
+
+---
+
+## Error Handling Strategy
+
+### Database Errors
+```php
+$stmt = $conn->prepare($query);
+if (!$stmt) {
+    $error_message = 'A server error occurred.';  // Generic user message
+    error_log("Prepare failed: " . $conn->error); // Server log
+}
+```
+
+### User-Facing Errors
+- Stored in `$error_message` / `$success_message` variables
+- Displayed via styled alert banners
+- Registration errors: Redirect with `?error=1` + session flash
+
+### Debug Mode (Development)
+```php
+// admin_schedule.php, student_schedule.php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+```
+
+---
+
+## Performance Considerations
+
+### Query Optimization
+- **Indexes**: Defined on all foreign keys and filter columns
+- **Limited Results**: `LIMIT` clauses on large tables (reservations, users)
+- **Joins over Subqueries**: `JOIN` used for related data fetching
+
+### Pagination (Implemented via LIMIT)
+```php
+// Admin dashboard: LIMIT 8 for pending, LIMIT 15 for all reservations
+// Student dashboard: LIMIT 10 for history
+```
+
+### Connection Management
+- **Single Connection**: `$conn` reused per request (no pooling)
+- **Auto-close**: PHP closes MySQLi connection at script end
+
+---
+
+## Timezone & Date Handling
+
+### Configuration
+```php
+// PHP: Implicit via DateTimeZone
+$tz = new DateTimeZone('Asia/Manila');
+
+// MySQL: Session timezone set in SQL dump
+SET time_zone = "+00:00";  -- UTC storage
+```
+
+### Datetime Storage
+- **Database**: `DATETIME` columns store UTC-equivalent local time
+- **Input**: HTML5 `datetime-local` → `DateTime::createFromFormat('Y-m-d\TH:i')`
+- **Output**: `date('M d, Y h:i A', strtotime($db_datetime))`
+
+### Schedule Time Logic
+```php
+// Grid positioning (student_schedule.php lines 695-699)
+$start_minutes = (intval(substr($sched['start_time'], 0, 2)) * 60) + intval(substr($sched['start_time'], 3, 2));
+$top = (($start_minutes - 7*60) / 30) * 30;  // 30px per 30-min slot from 7AM
+$height = (($end_minutes - $start_minutes) / 30) * 30;
+```
+
+---
+
+## File Upload Handling (Resources)
+
+### Current Implementation
+```php
+// add_resource.php, edit_resource.php
+// image_path stored as VARCHAR(255) - path to uploaded file
+// No validation shown in provided code - potential area for improvement
+```
+
+### Recommended Enhancements
+- Validate MIME type (`image/`)
+- Sanitize filename
+- Store outside webroot or with random names
+- Limit file size
+
+---
+
+## Extensibility Points
+
+### Adding New Resource Categories
+1. No code change needed - `category` is VARCHAR(50)
+2. Frontend: Update dropdown options in forms
+
+### Adding New Reservation Statuses
+1. ALTER TABLE `reservations` MODIFY status ENUM(...)
+2. Update all status-checking queries
+3. Add CSS classes for new status badges
+
+### Adding New User Roles
+1. ALTER TABLE `users` MODIFY role ENUM(...)
+2. Add role checks in auth guards
+3. Create role-specific dashboards/permissions
+
+### Multi-Semester Support
+- Already implemented via `semester` column in `schedules` and `student_schedules`
+- Filter dropdown persists selection via GET parameter
+
+---
+
+## Deployment Configuration
+
+### Required PHP Extensions
+- `mysqli` (MySQL Improved)
+- `session` (enabled by default)
+- `filter` (for `filter_var()`)
+- `mbstring` (recommended for UTF-8)
+
+### Apache Configuration
+```apache
+# .htaccess or vhost config
+DirectoryIndex login.php
+# Optional: Hide .php extensions
+```
+
+### Database Setup Commands
+```bash
+mysql -u root -p < tam_hub.sql
+mysql -u root -p < schedule_schema.sql
+```
+
+### Environment Variables (Production)
+```php
+// db_connect.php - use environment variables
+$hostname = getenv('DB_HOST') ?: 'localhost';
+$dbuser = getenv('DB_USER') ?: 'root';
+$dbpass = getenv('DB_PASS') ?: '';
+$dbname = getenv('DB_NAME') ?: 'tam_hub';
+```
+
+---
+
+## Backend File Reference
+
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `db_connect.php` | DB connection singleton | `$conn` global |
+| `login.php` | Auth entry point | login, session init, redirect |
+| `register.php` | User registration | validation, hash, insert |
+| `logout.php` | Session termination | destroy, redirect |
+| `student_dashboard.php` | Student portal hub | stats, reservations CRUD, sections |
+| `reserve_resource.php` | Resource booking | conflict detection, insert |
+| `student_schedule.php` | Schedule management | enrollment, changes, grid calc |
+| `admin_dashboard.php` | Admin portal hub | approvals, users, resources, reports |
+| `admin_schedule.php` | Master schedule CRUD | conflict detection, PRG |
+| `admin_schedule_approvals.php` | Change request review | approve/reject logic |
+| `add_resource.php` | Resource creation | insert |
+| `edit_resource.php` | Resource update | update |
+| `student_sidebar.php` | Shared student nav | `$current_page` highlighting |
+| `admin_sidebar.php` | Shared admin nav | `$current_page` highlighting |
+
+---
+
+## Testing Checklist (Backend)
+
+- [ ] Login with valid/invalid credentials
+- [ ] Register new student (email format, password match, student number)
+- [ ] Duplicate email rejection
+- [ ] Role-based redirect (student vs admin)
+- [ ] Session persistence across pages
+- [ ] Logout destroys session
+- [ ] Reservation conflict detection (overlap, past time)
+- [ ] Admin approve/reject/complete flow
+- [ ] Student cancel own pending reservation
+- [ ] Resource CRUD with referential integrity
+- [ ] Schedule room conflict detection
+- [ ] Student enroll/drop/change request
+- [ ] Admin approve/reject schedule changes
+- [ ] User management: add/upgrade/downgrade
+- [ ] SQL injection attempt (should fail safely)
+- [ ] XSS attempt via inputs (should be escaped)
+
+---
+
+## Known Limitations / Technical Debt
+
+1. **No CSRF Tokens**: Forms vulnerable to CSRF (mitigated by SameSite=Lax default)
+2. **No Rate Limiting**: Login/register endpoints unprotected
+3. **File Upload Validation**: Missing in resource image handling
+4. **Error Logging**: Minimal - only `echo` on DB connect failure
+5. **No API Layer**: Direct PHP-HTML coupling, no JSON endpoints
+6. **Soft Deletes**: Not implemented (hard deletes only)
+7. **Audit Trail**: No logging of admin actions
+8. **Connection Pooling**: Single connection per request
+9. **Prepared Statement Reuse**: Not cached across requests
+10. **Timezone in DB**: Stored as local time, not UTC (consistency risk)
+
+---
+
+*Generated from code analysis of TAM_HUB backend (PHP/MySQLi)*
+*Last Updated: 2026-07-18*

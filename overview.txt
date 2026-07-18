@@ -1,0 +1,356 @@
+# TAM-HUB Project Overview
+
+## High-Level Concept
+
+**TAM-HUB** is a **FEU Tech Resource Management & Scheduling System** built with PHP/MySQL. It's a dual-role web application serving:
+
+- **Students** — Reserve lab resources (laptops, projectors, rooms, equipment), view schedules, request schedule changes
+- **Admins** — Manage resources, approve/reject reservations, manage schedules, manage user accounts
+
+---
+
+## Architecture Overview
+
+### Technology Stack
+- **Backend**: PHP 7.4+ (procedural + prepared statements with MySQLi)
+- **Database**: MySQL/MariaDB (`tam_hub` database)
+- **Frontend**: HTML5, CSS3 (custom CSS variables), vanilla JS, FontAwesome 6
+- **Auth**: Session-based with password_hash()/password_verify()
+- **Deployment**: XAMPP (Apache + MySQL)
+
+### Project Structure
+```
+TAM_HUB/
+├── Core Files
+│   ├── db_connect.php          # MySQLi connection (localhost/root/no-pass/tam_hub)
+│   ├── login.php               # Unified login + registration form (toggle UI)
+│   ├── register.php            # Student registration handler
+│   ├── logout.php              # Session destroy + redirect
+│
+├── Student Portal
+│   ├── student_dashboard.php   # Main dashboard (active reservations, history, resources, profile)
+│   ├── student_sidebar.php     # Shared sidebar include (Dashboard, Schedule, Resources, Reservations, New Reservation)
+│   ├── student_schedule.php    # Weekly grid schedule + enrollment + change requests
+│   ├── reserve_resource.php    # Resource reservation form with conflict detection
+│
+├── Admin Portal
+│   ├── admin_dashboard.php     # Stats, pending queue, user management, resource inventory, reports
+│   ├── admin_sidebar.php       # Shared sidebar include (Dashboard, Reservations, Users, Resources, Reports)
+│   ├── admin_schedule.php      # CRUD for master schedules (subjects/rooms/times)
+│   ├── admin_schedule_approvals.php  # Approve/reject student schedule change requests
+│   ├── add_resource.php        # Add new resource
+│   ├── edit_resource.php       # Edit existing resource
+│
+├── Database
+│   ├── tam_hub.sql             # Core schema (users, resources, reservations)
+│   ├── schedule_schema.sql     # Schedule system schema (schedules, student_schedules)
+│
+├── Assets
+│   ├── dashboardstyle.css      # Student portal styles
+│   ├── dashboardstyle_admin.css # Admin portal styles
+│   ├── loginstyle.css          # Login/register page styles
+│   ├── dashboardscript.js      # Shared JS (sidebar toggle, modals)
+│   ├── dashboardscript_admin.js # Admin-specific JS
+│   └── loginscript.js          # Login page toggle animation
+```
+
+---
+
+## Database Schema (Core Tables)
+
+### `users`
+| Column | Type | Notes |
+|--------|------|-------|
+| email | VARCHAR(100) PK | FEU Tech email (@fit.edu.ph) |
+| password | VARCHAR(255) | bcrypt hash |
+| first_name | VARCHAR(50) | |
+| last_name | VARCHAR(50) | |
+| student_number | VARCHAR(20) | 9 digits, empty for admins |
+| role | ENUM('student','admin') | Default: 'student' |
+| created_at | TIMESTAMP | Auto |
+| last_login | TIMESTAMP | Nullable, updated on login |
+
+### `resources`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INT PK | Auto increment |
+| name | VARCHAR(100) | |
+| category | VARCHAR(50) | e.g., Laptop, Projector, Room |
+| description | TEXT | |
+| quantity | INT | Available units |
+| status | ENUM('Available','Reserved','Out for Repair','Unavailable') | Default: 'Available' |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | Auto on update |
+
+### `reservations`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INT PK | Auto increment |
+| user_email | VARCHAR(100) FK | → users.email (CASCADE) |
+| resource_id | INT FK | → resources.id (CASCADE) |
+| purpose | TEXT | Student's reason |
+| start_datetime | DATETIME | |
+| end_datetime | DATETIME | |
+| status | ENUM('Pending','Approved','Rejected','Cancelled','Completed') | Default: 'Pending' |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | Auto on update |
+
+### `schedules` (Master schedule - admin managed)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INT PK | |
+| subject_code | VARCHAR(20) | e.g., AUTOMATA |
+| subject_name | VARCHAR(100) | |
+| room | VARCHAR(50) | e.g., FIT608 |
+| day_of_week | ENUM | Mon-Sat |
+| start_time | TIME | |
+| end_time | TIME | |
+| semester | VARCHAR(50) | e.g., "1st Semester 2024-2025" |
+| status | ENUM('Active','Inactive') | |
+
+### `student_schedules` (Student enrollments + change requests)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INT PK | |
+| student_email | VARCHAR(100) FK | → users.email |
+| schedule_id | INT FK | → schedules.id |
+| status | ENUM('Enrolled','Pending Change','Change','Dropped') | |
+| requested_room | VARCHAR(50) | For change requests |
+| requested_day | ENUM | For change requests |
+| requested_start_time | TIME | For change requests |
+| requested_end_time | TIME | For change requests |
+| change_reason | TEXT | Student's justification |
+| admin_remarks | TEXT | Admin's response |
+
+---
+
+## Program Flow: User Journey
+
+### 1. ENTRY POINTS
+
+#### **login.php** (Primary Entry)
+- **Session check**: If already logged in → redirect to appropriate dashboard
+- **Dual-form UI**: Toggle between Sign In / Sign Up (CSS animation)
+- **Login POST handling**:
+  1. Validate email/password
+  2. Query users table by email
+  3. `password_verify()` against bcrypt hash
+  4. On success: regenerate session ID, set session vars (email, first_name, last_name, role)
+  5. Update `last_login` timestamp
+  6. Redirect: admin → `admin_dashboard.php`, student → `student_dashboard.php`
+- **Registration redirect**: Sign Up form POSTs to `register.php`
+
+#### **register.php** (Registration Handler)
+- **Validation**:
+  - All fields required
+  - Email must be `@fit.edu.ph`
+  - Password ≥ 8 chars, matches confirmation
+  - Student number = 9 digits
+- **Duplicate check**: Email uniqueness
+- **Insert**: Hash password with `password_hash(PASSWORD_DEFAULT)`, insert with role='student'
+- **Redirect**: `login.php?registered=1` (shows success message)
+
+---
+
+### 2. STUDENT FLOW
+
+```
+login.php (role=student)
+    ↓
+student_dashboard.php (default section=dashboard)
+    ├── Section: dashboard (default)
+    │   ├── Stats: Active reservations, Available resources, Pending approvals, History count
+    │   ├── Active Reservations list (Pending/Approved) with Cancel button
+    │   ├── Quick Actions: Browse Resources, New Reservation, View History, My Schedule
+    │   └── Profile panel
+    │
+    ├── Section: resources (?section=resources)
+    │   └── Table of available resources → "Reserve" links to reserve_resource.php
+    │
+    ├── Section: history (?section=history)
+    │   └── Past reservations (Rejected/Cancelled/Completed)
+    │
+    └── Section: schedule (?section=schedule) → redirects to student_schedule.php
+```
+
+#### **reserve_resource.php**
+- GET: `?resource_id=` pre-selects resource
+- POST: Validates datetime, checks resource availability, checks overlapping reservations
+- Conflict detection: SQL overlap query (Pending + Approved)
+- On success: Insert reservation with status='Pending', redirect to dashboard
+
+#### **student_schedule.php**
+- Semester selector (persists via GET)
+- Weekly grid (Mon-Sat, 7AM-9PM, 30-min slots)
+- **Enrolled classes**: Colored blocks positioned by time
+- **Actions per class**: "Change" (opens modal), "Drop" (sets status='Dropped')
+- **Available classes**: Table with "Enroll" buttons
+- **Pending change requests**: Comparison view (current vs requested)
+- **History**: Approved/Rejected change requests with admin remarks
+
+#### **student_dashboard.php?cancel=ID**
+- Cancel own pending reservation (status → 'Cancelled')
+
+---
+
+### 3. ADMIN FLOW
+
+```
+login.php (role=admin)
+    ↓
+admin_dashboard.php (default section=dashboard)
+    ├── Section: dashboard
+    │   ├── Stats cards: Pending, Approved Today, Total Resources, Rejected/Cancelled
+    │   ├── Reservation Review Queue (Pending only) → Approve/Reject buttons
+    │   ├── Quick Actions: Add Resource, Manage Schedules, Schedule Approvals
+    │   └── Admin Snapshot: Students count, Available resources, Resource types, Pending
+    │
+    ├── Section: reservations (?section=reservations)
+    │   └── Same review queue + full reservations table
+    │
+    ├── Section: users (?section=users)
+    │   ├── User table with role badges
+    │   ├── Add Student modal (email, name, student#, password)
+    │   ├── Add Admin modal (email, name, password - no student#)
+    │   ├── Upgrade student → admin (POST upgrade_to_admin)
+    │   └── Downgrade admin → student (POST downgrade_to_student, prevents self-downgrade)
+    │
+    ├── Section: resources (?section=resources)
+    │   ├── Inventory table with Edit/Delete
+    │   ├── Status dropdown (Available/Reserved/Repair/Unavailable)
+    │   └── "Add Resource" → add_resource.php
+    │
+    └── Section: reports (?section=reports)
+        ├── Recent activity feed
+        └── Daily summary stats
+```
+
+#### **Admin Actions (GET params on admin_dashboard.php)**
+| Param | Action | Validation |
+|-------|--------|------------|
+| `?approve=ID` | Reservation → Approved | Must be Pending |
+| `?reject=ID` | Reservation → Rejected | Must be Pending |
+| `?complete=ID` | Reservation → Completed | Must be Approved |
+| `?delete_resource=ID` | Delete resource | No active reservations |
+| `?update_status=ID&new_status=X` | Change resource status | Valid enum value |
+
+#### **admin_schedule.php**
+- Semester filter (persists on redirect - PRG pattern)
+- CRUD modals: Add/Edit/Delete/Toggle Active
+- Room conflict detection (same room, same day, overlapping time)
+- Prevents delete if students enrolled
+
+#### **admin_schedule_approvals.php**
+- Lists student "Pending Change" requests
+- Compare current vs requested (room/day/time)
+- Approve: Updates schedule or creates new enrollment
+- Reject: Sets status back to 'Enrolled', stores admin_remarks
+
+#### **add_resource.php / edit_resource.php**
+- Standard CRUD forms for resources table
+- Validation: name, category, quantity > 0
+
+---
+
+### 4. AUTHENTICATION & SESSION FLOW
+
+```
+Session Variables Set on Login:
+├── $_SESSION['user_email'] = email
+├── $_SESSION['email'] = email (legacy compat)
+├── $_SESSION['first_name'] = first_name
+├── $_SESSION['last_name'] = last_name
+└── $_SESSION['role'] = 'student' | 'admin'
+
+Auth Check Pattern (top of every protected page):
+────────────────────────────────────────────────
+session_start();
+if (!isset($_SESSION['user_email']) && !isset($_SESSION['email'])) {
+    header("Location: login.php");
+    exit();
+}
+$user_email = $_SESSION['user_email'] ?? $_SESSION['email'];
+
+// Role-based redirect
+if ($_SESSION['role'] !== 'expected_role') {
+    header("Location: other_dashboard.php");
+    exit();
+}
+```
+
+**Logout** (`logout.php`):
+```php
+$_SESSION = [];
+session_destroy();
+header("Location: login.php");
+```
+
+---
+
+### 5. KEY DESIGN PATTERNS
+
+| Pattern | Where Used |
+|---------|------------|
+| **PRG (Post-Redirect-Get)** | All admin POST handlers redirect with `?success=1` or `?error=1` |
+| **Prepared Statements** | All DB queries use `$stmt->bind_param()` |
+| **Password Hashing** | `password_hash()` / `password_verify()` |
+| **Session Regeneration** | `session_regenerate_id(true)` on login |
+| **Timezone Handling** | `DateTimeZone('Asia/Manila')` for FEU Tech local time |
+| **Shared Includes** | `student_sidebar.php`, `admin_sidebar.php` with `$current_page` |
+| **Section-based Navigation** | Single dashboard file, `?section=` param switches content |
+| **Modal Forms** | Bootstrap-style modals for add/edit (no page navigation) |
+
+---
+
+### 6. SECURITY NOTES
+
+✅ **Implemented**
+- Prepared statements everywhere (SQL injection prevention)
+- Password hashing with bcrypt (PASSWORD_DEFAULT)
+- Session regeneration on login (fixation prevention)
+- Role-based access control on every page
+- Input validation + `htmlspecialchars()` on output
+- CSRF protection: Not explicitly implemented (relies on SameSite cookies)
+
+⚠️ **Potential Improvements**
+- Add CSRF tokens to forms
+- Rate limiting on login/register
+- Password strength requirements beyond length
+- Admin action logging/audit trail
+
+---
+
+### 7. DEPLOYMENT NOTES
+
+**Database Setup**:
+1. Create database `tam_hub`
+2. Import `tam_hub.sql` (core tables + sample data)
+3. Import `schedule_schema.sql` (schedule system)
+
+**Configuration** (`db_connect.php`):
+```php
+$hostname = "localhost";
+$dbuser = "root";
+$dbpass = "";
+$dbname = "tam_hub";
+```
+
+**Default Admin**: Create via `register.php` then manually update `role='admin'` in DB, or use admin dashboard "Add Admin" feature.
+
+---
+
+### 8. FILE REFERENCE QUICK LOOKUP
+
+| Feature | Main File(s) |
+|---------|--------------|
+| Login/Register | `login.php`, `register.php` |
+| Student Dashboard | `student_dashboard.php` |
+| Student Schedule | `student_schedule.php` |
+| Resource Reservation | `reserve_resource.php` |
+| Admin Dashboard | `admin_dashboard.php` |
+| Schedule Management | `admin_schedule.php` |
+| Schedule Approvals | `admin_schedule_approvals.php` |
+| Resource CRUD | `add_resource.php`, `edit_resource.php` |
+| Database | `db_connect.php`, `tam_hub.sql`, `schedule_schema.sql` |
+| Styles | `dashboardstyle.css`, `dashboardstyle_admin.css`, `loginstyle.css` |
+| Scripts | `dashboardscript.js`, `dashboardscript_admin.js`, `loginscript.js` |

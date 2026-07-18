@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="loginstyle.css">
+    <title>Login Page</title>
+</head>
+
+<body>
+
+    <div class="container" id="container">
+        <div class="form-container sign-up">
+            <form method = "POST" action = register.php >
+                <h1>Create Account</h1>
+                <div class="social-icons">
+                    <a href="#" class="icon"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-facebook"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-github"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-linkedin-in"></i></a>
+                </div>
+                <span>or use your email for registeration</span>
+                <input type="email" placeholder="Email">
+                <input type="first_name" placeholder="First Name">
+                <input type="last_name" placeholder="Last Name">
+                <input type="student_number" placeholder="Student Number">
+                <input type="contact_number" placeholder="Contact Number">
+                <input type="password" placeholder="Password">
+                <input type="confirm_password" placeholder="Retype Password">
+                <select type="role">
+                    <option value="student">Student</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button>Sign Up</button>
+            </form>
+        </div>
+        <div class="form-container sign-in">
+            <form method = "POST" action = "login.php">
+                <h1>Sign In</h1>
+                <div class="social-icons">
+                    <a href="#" class="icon"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-facebook"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-github"></i></a>
+                    <a href="#" class="icon"><i class="fa-brands fa-linkedin-in"></i></a>
+                </div>
+                <span>or use your email password</span>
+                <input type="username" placeholder="Email">
+                <input type="password" placeholder="Password">
+                <a href="#">Forget Your Password?</a>
+                <button>Sign In</button>
+            </form>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle">
+                <div class="toggle-panel toggle-left">
+                    <img src="FEU.webp" alt="FEU Logo" class="logo">
+                    <h1>Log In</h1>
+                    <p>Enter your personal details to use all of site features</p>
+                    <button class="hidden" id="signin">Sign In</button>
+                </div>
+                <div class="toggle-panel toggle-right">
+                    <img src="FEU.webp" alt="FEU Logo" class="logo">
+                    <h1>Register</h1>
+                    <p>To keep connected with us please register with your personal information</p>
+                    <button class="hidden" id="signup">Sign Up</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="loginscript.js"></script>
+</body>
+
+</html>
