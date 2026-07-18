@@ -19,7 +19,7 @@ A dual-role PHP/MySQL web application for managing lab resources, reservations, 
 - Student schedule change approvals
 - User management & reports
 
-## Default Accounts
+## Default Account
 
 - email: admin@fit.edu.ph
 - pass: admin123
