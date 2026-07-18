@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tams-Hub | Admin Resource Center</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+  <link rel="stylesheet" href="dashboardstyle_admin.css" />
+</head>
+<body>
+  <aside class="main-sidebar" id="sidebar">
+    <a href="#" class="brand-link">
+      <div class="brand-logo">
+        <img src="./FEU_Tamaraws_official_logo.svg.webp" alt="Tams-Hub Logo" class="brand-image">
+    </div>
+      <h1 class="brand-title">Tams-Hub</h1>
+      <div class="brand-subtitle">ADMIN RESOURCE<br />MANAGEMENT CENTER</div>
+    </a>
+
+    <hr class="sidebar-divider" />
+
+    <div class="sidebar">
+      <nav>
+        <ul class="nav-sidebar">
+          <li class="nav-item active"><a href="#" class="nav-link"><i class="fa-solid fa-gauge-high"></i><p>Dashboard</p></a></li>
+          <li class="nav-item"><a href="#reservations" class="nav-link"><i class="fa-solid fa-clipboard-list"></i><p>Reservations</p></a></li>
+          <li class="nav-item"><a href="#resources" class="nav-link"><i class="fa-solid fa-boxes-stacked"></i><p>Resources</p></a></li>
+          <li class="nav-item"><a href="#users" class="nav-link"><i class="fa-solid fa-users"></i><p>Students</p></a></li>
+          <li class="nav-item"><a href="#reports" class="nav-link"><i class="fa-solid fa-chart-line"></i><p>Reports</p></a></li>
+          <li class="nav-item"><a href="#settings" class="nav-link"><i class="fa-solid fa-gear"></i><p>Settings</p></a></li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="content-wrapper">
+    <header class="topbar">
+      <button class="menu-btn" id="sidebarToggle" aria-label="Toggle sidebar"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title">Admin Resource Center</div>
+      <div class="topbar-right">
+        <i class="fa-regular fa-bell icon-btn"></i>
+        <div class="user-chip"><i class="fa-solid fa-circle-user"></i><span>Admin</span></div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      
+
+      <section class="hero">
+        <div>
+          <h2>Manage requests, resources, and approvals in one place.</h2>
+          <div class="hero-actions">
+            <button class="btn btn-primary"><i class="fa-solid fa-square-plus"></i> Add Resource</button>
+            <button class="btn btn-dark"><i class="fa-solid fa-filter"></i> Review Queue</button>
+          </div>
+        </div>
+        <div class="hero-card">
+          <h4>Today’s Overview</h4>
+          <p class="big">12</p>
+          <p class="small">pending requests across all resource types</p>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card"><div class="stat-icon icon-green"><i class="fa-solid fa-clipboard-check"></i></div><div><span class="stat-label">Pending Approvals</span><span class="stat-value">12</span></div></div>
+        <div class="stat-card"><div class="stat-icon icon-gold"><i class="fa-solid fa-check"></i></div><div><span class="stat-label">Approved Today</span><span class="stat-value">18</span></div></div>
+        <div class="stat-card"><div class="stat-icon icon-blue"><i class="fa-solid fa-boxes-stacked"></i></div><div><span class="stat-label">Total Resources</span><span class="stat-value">47</span></div></div>
+        <div class="stat-card"><div class="stat-icon icon-red"><i class="fa-solid fa-user-slash"></i></div><div><span class="stat-label">Rejected / Cancelled</span><span class="stat-value">4</span></div></div>
+      </section>
+
+      <section class="grid-2" id="reservations">
+        <div class="panel">
+          <h3 class="section-title">Reservation Review Queue</h3>
+          <div class="subgrid">
+            <div class="mini-card">
+              <h4>Physics Lab • Lab Session</h4>
+              <p>Student: Jrex Lester Atiga<br />Requested: 10:00 AM - 12:00 PM</p>
+              <span class="pill pending">Pending</span>
+            </div>
+            <div class="mini-card">
+              <h4>E608 | Computer Lab</h4>
+              <p>Student: Marluo Silva<br />Requested: 1:00 PM - 3:00 PM</p>
+              <span class="pill approved">Approved</span>
+            </div>
+            <div class="mini-card">
+              <h4>E608 | Computer Lab</h4>
+              <p>Student: Marluo Silva<br />Requested: 3:00 PM - 5:00 PM</p>
+              <span class="pill pending">Pending</span>
+            </div>
+            <div class="mini-card">
+              <h4>F701</h4>
+              <p>Student: Jorge Anacta<br />Requested: 8:00 AM - 10:00 AM</p>
+              <span class="pill rejected">Cancelled</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-stack">
+          <div class="panel">
+            <h3 class="section-title">Quick Actions</h3>
+            <div class="quick-actions">
+              <button class="btn btn-primary"><i class="fa-solid fa-circle-check"></i> Approve Selected</button>
+              <button class="btn btn-dark"><i class="fa-solid fa-ban"></i> Reject Selected</button>
+              <button class="btn btn-primary"><i class="fa-solid fa-print"></i> Print Daily Log</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 class="section-title">Admin Snapshot</h3>
+            <div class="profile-grid">
+              <div><span class="profile-label">Managed By</span><span class="profile-value">Resource Office</span></div>
+              <div><span class="profile-label">Active Rooms</span><span class="profile-value">6</span></div>
+              <div><span class="profile-label">Equipment Types</span><span class="profile-value">21</span></div>
+              <div><span class="profile-label">Late Returns</span><span class="profile-value">2</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-block" id="resources">
+        <div class="panel">
+          <h3 class="section-title">Resource Inventory</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Available</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Server Rack</td><td>Equipment</td><td>12</td><td><span class="status-tag status-ready">Ready</span></td><td><a href="#" class="action-btn small">Edit</a></td></tr>
+                <tr><td>Coaxial Cable</td><td>Equipment</td><td>8</td><td><span class="status-tag status-ready">Ready</span></td><td><a href="#" class="action-btn small">Edit</a></td></tr>
+                <tr><td>Projector</td><td>Hardware</td><td>2</td><td><span class="status-tag status-busy">In Use</span></td><td><a href="#" class="action-btn small">Edit</a></td></tr>
+                <tr><td>Computer</td><td>Hardware</td><td>5</td><td><span class="status-tag status-ready">Ready</span></td><td><a href="#" class="action-btn small">Edit</a></td></tr>
+                <tr><td>Straight Through Cable</td><td>Hardware</td><td>3</td><td><span class="status-tag status-pending">Needs Check</span></td><td><a href="#" class="action-btn small">Edit</a></td></tr>
+                <tr><td>F701</td><td>Room</td><td>1</td><td><span class="status-tag status-ready">Ready</span></td><td><a href="#" class="action-btn small">Edit</a></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid-2" id="users">
+        <div class="panel">
+          <h3 class="section-title">Recent Student Requests</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Resource</th>
+                  <th>Schedule</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Jrex Lester Atiga</td><td>Library</td><td>July 15, 10:00 AM</td><td><span class="status-tag status-pending">Pending</span></td></tr>
+                <tr><td>Marluo Silva</td><td>Physics Lab</td><td>July 15, 1:00 PM</td><td><span class="status-tag status-ready">Approved</span></td></tr>
+                <tr><td>Jorge Anacta</td><td>Computer Lab</td><td>July 15, 3:00 PM</td><td><span class="status-tag status-cancelled">Cancelled</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3 class="section-title">Activity Log</h3>
+          <div class="mini-card" style="margin-bottom:12px;">
+            <h4>10 minutes ago</h4>
+            <p>Reservation cancelled for F701.</p>
+          </div>
+          <div class="mini-card" style="margin-bottom:12px;">
+            <h4>25 minutes ago</h4>
+            <p>Approved 2 Physics Lab requests for afternoon use.</p>
+          </div>
+          <div class="mini-card">
+            <h4>1 hour ago</h4>
+            <p>Approved resource: Projector</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-block" id="reports">
+        <div class="panel">
+          <h3 class="section-title">Daily Summary</h3>
+          <div class="profile-grid">
+            <div><span class="profile-label">Reservations Today</span><span class="profile-value">34</span></div>
+            <div><span class="profile-label">Approval Rate</span><span class="profile-value">82%</span></div>
+            <div><span class="profile-label">Most Reserved</span><span class="profile-value">Computer Lab</span></div>
+            <div><span class="profile-label">Peak Time</span><span class="profile-value">1:00 PM - 3:00 PM</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-block" id="settings">
+        <div class="panel">
+          <h3 class="section-title">Settings Preview</h3>
+          <div class="profile-grid">
+            <div><span class="profile-label">Notifications</span><span class="profile-value">Enabled</span></div>
+            <div><span class="profile-label">Auto-Approve Limit</span><span class="profile-value">2 hours</span></div>
+            <div><span class="profile-label">Access Role</span><span class="profile-value">Administrator</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="dashboardscript_admin.js"></script>
+</body>
+</html>

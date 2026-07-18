@@ -1,32 +1,26 @@
-#Tams-Hub
-CS0043 Final Project
+# TAM-HUB
 
-TAM-Hub
-A web application designed for FEU Tech students, faculty, and laboratory administrators to streamline the reservation and tracking of high-value technology resources.
+**FEU Tech Resource Management & Scheduling System**
 
-TAM-Hub replaces outdated paper logs and manual forms with a centralized, automated web portal. It directly addresses common campus challenges like resource hoarding, double-booking, and a lack of accountability, ensuring optimal resource utilization and ease or apporvals for admins, across the Tamaraw community.
+A dual-role PHP/MySQL web application for managing lab resources, reservations, and class schedules at FEU Institute of Technology.
 
-Key Features
-Live Availability Tracking: Real-time visibility of high-value hardware (Mac Minis, IoT development kits, FIT and ENG BLDGs Facilities and COR Revisions)
-Reservation Workflow: Hassle-free submission, approval, and management of active resource loans.
-Role-Based Access Control (RBAC): Tailored permission tiers for Students and Admins.
-Accountability & Security: Digital logs to protect valuable university property, information and prevent double-booking.
-Ease of access for Admin approvals.
+## Features
 
-Tech Stack
-Backend: PHP
-Database: MySQL
-Frontend: HTML, CSS(Bootstrap), PHP
-Environment: XAMPP
+**Student Portal**
+- Resource reservations (laptops, projectors, rooms, equipment) with conflict detection
+- Weekly schedule grid view with enrolled classes
+- Schedule change requests with admin approval
+- Reservation history tracking
 
-Installation & Local Setup
+**Admin Portal**
+- Reservation approval queue (Approve/Reject/Complete)
+- Full resource management (CRUD)
+- Master schedule management with conflict prevention
+- Student schedule change approvals
+- User management & reports
 
-To get this project running locally on your machine using XAMPP run this command on git:
-1)git clone [https://github.com/your-username/tam-hub.git](https://github.com/your-username/tam-hub.git)
-2)install XAMPP and create a MySQL database Called my "tams_hub" and import .sql file
-3)Navigate to http://localhost/tam-hub/ in your web browser
+## Default Accounts
 
-Contributors
-Anacta, Jorge - Backend - @Jorge080906
-Atiga, Jrex -
-Silva, Marluo
+- email: admin@fit.edu.ph
+- pass: admin123
+
